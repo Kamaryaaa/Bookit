@@ -5,12 +5,14 @@ import com.bookit.utilities.BookitUtils;
 import com.bookit.utilities.ConfigurationReader;
 import com.bookit.utilities.DB_Util;
 import com.bookit.utilities.Environment;
+import io.cucumber.java.af.En;
 import io.cucumber.java.en.Given;
 import io.cucumber.java.en.Then;
 import io.cucumber.java.en.When;
 import io.restassured.http.ContentType;
 import io.restassured.path.json.JsonPath;
 import io.restassured.response.Response;
+import org.hamcrest.Matchers;
 import org.junit.Assert;
 
 import java.util.Map;
@@ -18,10 +20,13 @@ import java.util.Map;
 import static io.restassured.RestAssured.*;
 
 public class ApiStepDefs {
-
     String token;
     Response response;
     String emailGlobal;
+    int entryId;
+
+    Map<String,String> teamInfo;
+    int addedTeamID;
 
     @Given("I logged Bookit api as a {string}")
     public void i_logged_bookit_api_as_a(String role) {
@@ -30,14 +35,13 @@ public class ApiStepDefs {
 
         Map<String, String> credentialsMap = BookitUtils.returnCredentials(role);
 
-        emailGlobal = credentialsMap.get("email");
+        emailGlobal=credentialsMap.get("email");
 
 
     }
-
     @When("I sent get request to {string} endpoint")
     public void i_sent_get_request_to_endpoint(String endpoint) {
-         response = given().accept(ContentType.JSON)
+        response = given().accept(ContentType.JSON)
                 .header("Authorization", token)
                 .when().get(Environment.BASE_URL + endpoint);
     }
@@ -48,25 +52,23 @@ public class ApiStepDefs {
         Assert.assertEquals(expectedStatusCode,response.statusCode());
 
     }
-
     @Then("content type is {string}")
     public void content_type_is(String expectedContentType) {
         System.out.println("response.contentType() = " + response.contentType());
-        //verify content type
         Assert.assertEquals(expectedContentType,response.contentType());
+
     }
     @Then("role is {string}")
     public void role_is(String expectedRole) {
         response.prettyPrint();
         String actualRole = response.path("role");
+        Assert.assertEquals(actualRole,expectedRole);
 
-        Assert.assertEquals(expectedRole,actualRole);
     }
 
     @Then("the information about current user from api and database should match")
     public void the_information_about_current_user_from_api_and_database_should_match() {
-        response.prettyPrint();
-        //GET DATA FROM API
+       //get data from api
         JsonPath jsonPath = response.jsonPath();
         /*
         {
@@ -80,34 +82,28 @@ public class ApiStepDefs {
         String actualLastName = jsonPath.getString("lastName");
         String actualRole = jsonPath.getString("role");
 
-        //GET DATA FROM DATABASE
-        //first we need to create database connection which will handle by custom hooks
+
+        // and get data from db
         String query = "select firstname,lastname,role from users\n" +
                 "where email ='"+emailGlobal+"'";
-        //run your query
-        DB_Util.runQuery(query);
-
-        //get the result to map
+       DB_Util.runQuery(query);
         Map<String, String> dbMap = DB_Util.getRowMap(1);
         System.out.println("dbMap = " + dbMap);
-
         String expectedFirstName = dbMap.get("firstname");
         String expectedLastName = dbMap.get("lastname");
         String expectedRole = dbMap.get("role");
 
-        //COMPARE API vs DB
-
+        // compare them
         Assert.assertEquals(expectedFirstName,actualFirstName);
         Assert.assertEquals(expectedLastName,actualLastName);
         Assert.assertEquals(expectedRole,actualRole);
-
     }
 
     @Then("UI,API and Database user information must be match")
     public void ui_api_and_database_user_information_must_be_match() {
-        response.prettyPrint();
-        //GET DATA FROM API
-        JsonPath jsonPath = response.jsonPath();
+
+            //get data from api
+            JsonPath jsonPath = response.jsonPath();
         /*
         {
             "id": 17381,
@@ -116,75 +112,122 @@ public class ApiStepDefs {
             "role": "student-team-member"
         }
          */
-        String actualFirstName = jsonPath.getString("firstName");
-        String actualLastName = jsonPath.getString("lastName");
-        String actualRole = jsonPath.getString("role");
+            String actualFirstName = jsonPath.getString("firstName");
+            String actualLastName = jsonPath.getString("lastName");
+            String actualRole = jsonPath.getString("role");
 
-        //GET DATA FROM DATABASE
-        //first we need to create database connection which will handle by custom hooks
-        String query = "select firstname,lastname,role from users\n" +
-                "where email ='"+emailGlobal+"'";
-        //run your query
-        DB_Util.runQuery(query);
 
-        //get the result to map
-        Map<String, String> dbMap = DB_Util.getRowMap(1);
-        System.out.println("dbMap = " + dbMap);
+            // and get data from db
+            String query = "select firstname,lastname,role from users\n" +
+                    "where email ='" + emailGlobal + "'";
+            DB_Util.runQuery(query);
+            Map<String, String> dbMap = DB_Util.getRowMap(1);
+            System.out.println("dbMap = " + dbMap);
+            String expectedFirstName = dbMap.get("firstname");
+            String expectedLastName = dbMap.get("lastname");
+            String expectedRole = dbMap.get("role");
 
-        String expectedFirstName = dbMap.get("firstname");
-        String expectedLastName = dbMap.get("lastname");
-        String expectedRole = dbMap.get("role");
+            // compare them
+            Assert.assertEquals(expectedFirstName, actualFirstName);
+            Assert.assertEquals(expectedLastName, actualLastName);
+            Assert.assertEquals(expectedRole, actualRole);
 
-        //COMPARE API vs DB
+         //get data from UI
+        SelfPage selfPage=new SelfPage();
 
-        Assert.assertEquals(expectedFirstName,actualFirstName);
-        Assert.assertEquals(expectedLastName,actualLastName);
-        Assert.assertEquals(expectedRole,actualRole);
-
-        //GET DAT FROM UI
-        SelfPage selfPage = new SelfPage();
-
-        String actualFullNameUI = selfPage.name.getText();
+        String actualFullNameUI=selfPage.name.getText();
         String actualRoleUI = selfPage.role.getText();
-        System.out.println("actualFullNameUI = " + actualFullNameUI);
-        //UI vs DB
-        String expectedFullName = expectedFirstName+" "+expectedLastName;
+            //UI vs DB
 
-        Assert.assertEquals(expectedFullName,actualFullNameUI);
+            String expectedFullName = expectedFirstName+" "+expectedLastName;
+            Assert.assertEquals(expectedFullName,actualFullNameUI);
+            Assert.assertEquals(expectedRole,actualRole);
+
+            //UI vs API
+        String expectedNameFromAPI=actualFirstName+" "+actualLastName;
+        Assert.assertEquals(expectedNameFromAPI,actualFullNameUI);
         Assert.assertEquals(expectedRole,actualRoleUI);
 
-
-        //UI vs API
-        String expectedNameFromAPI = actualFirstName+" "+actualLastName;
-        Assert.assertEquals(expectedNameFromAPI,actualFullNameUI);
-        Assert.assertEquals(actualRole,actualRoleUI);
-    }
-
-    //ADDING A NEW STUDENT AND DELETING IT
+        }
 
     @When("I send POST request {string} endpoint with following information")
-    public void i_send_post_request_endpoint_with_following_information(String endpoint, Map<String,String> studentInfo) {
-        response=given().accept(ContentType.JSON)
-                        .header("Authorization",token)
-                        .queryParams(studentInfo)
-                .when().post(Environment.BASE_URL +endpoint).prettyPeek();
+    public void i_send_post_request_endpoint_with_following_information(String endpoint, Map<String, String> studentsInfo) {
+         response = given().accept(ContentType.JSON).header("Authorization",token)
+                .queryParams(studentsInfo).when().post(Environment.BASE_URL+endpoint).then().extract().response().prettyPeek();
+
+        entryId = response.path("entryiId");
 
     }
     @Then("I delete previously added student")
     public void i_delete_previously_added_student() {
-        //we need to get the entryiId from the post request and send delete request to it.
-        int idToDelete = response.path("entryiId");
-        System.out.println("idToDelete = " + idToDelete);
-
-        //Send DELETE request to idToDelete path parameter
-        given()
-                .header("Authorization",token)
-                .pathParam("id",idToDelete)
-        .when()
-                .delete(Environment.BASE_URL+"/api/students/{id}")
-                .then().statusCode(204);
+        given().header("Authorization",token).pathParam("id",entryId)
+                .when().delete(Environment.BASE_URL+"/api/students/{id}").then().statusCode(204);
 
     }
 
 
+
+    @When("Users sends POST request to {string} with following info:")
+    public void users_sends_post_request_to_with_following_info(String endPoint, Map<String,String> teamInfo) {
+        this.teamInfo=teamInfo;
+       response= given().accept(ContentType.JSON).header("Authorization",token)
+                .queryParams(teamInfo).when().post(Environment.BASE_URL+endPoint)
+                .then().extract().response().prettyPeek();
+        addedTeamID = response.path("entryiId");
+
+    }
+    @Then("Database should persist same team info")
+    public void database_should_persist_same_team_info() {
+
+        String query = "select name, batch_number, location from team\n" +
+                "join campus c on team.campus_id = c.id\n" +
+                "where team.id="+addedTeamID+" and name='"+teamInfo.get("team-name")+"' and batch_number ="+teamInfo.get("batch-number");
+        DB_Util.runQuery(query);
+        Map<String, String> teamInfoDB = DB_Util.getRowMap(1);
+        String actualName = teamInfoDB.get("name");
+        String actualLocation = teamInfoDB.get("location");
+        String actualBatchNumber = teamInfoDB.get("batch_number");
+        System.out.println("teamInfoDB = " + teamInfoDB);
+
+        response = given().accept(ContentType.JSON)
+                .header("Authorization", token)
+                .when().get(Environment.BASE_URL + "/api/teams/"+addedTeamID);
+        JsonPath jp = response.jsonPath();
+
+        String expectedTeamName = jp.getString("name");
+        String expectedBatchNumber = teamInfo.get("batch-number");
+        String expectedLocation = teamInfo.get("campus-location");
+
+        Assert.assertEquals(expectedTeamName,actualName);
+        Assert.assertEquals(expectedBatchNumber,actualBatchNumber);
+        Assert.assertEquals(expectedLocation,actualLocation);
+
+
+
+
+
+    }
+    @Then("User deletes previously created team")
+    public void user_deletes_previously_created_team() {
+
+        given().header("Authorization",token)
+                .pathParam("id",addedTeamID)
+                .when()
+                .delete(Environment.BASE_URL+"/api/teams/{id}")
+                .then().statusCode(200)
+                .body("message", Matchers.is("team "+teamInfo.get("team-name")+" has been successfully removed"));
+
+    }
+
+
+
+
+
+
+
+
+
 }
+
+
+

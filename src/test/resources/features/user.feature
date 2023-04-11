@@ -8,12 +8,14 @@ Feature: User Verification
     And content type is "application/json"
     And role is "student-team-member"
 
-      # API vs DB ---> Two point verification
-  @db
+
+   # API vs DB ---> Two point verification
+   @db
   Scenario: verify information about logged user from api and database
-    Given I logged Bookit api as a "teacher"
+    Given I logged Bookit api as a "team-member"
     When I sent get request to "/api/users/me" endpoint
     Then the information about current user from api and database should match
+
 
   @db @ui
   Scenario: three point/layer (UI,API,DATABASE)
@@ -32,7 +34,7 @@ Feature: User Verification
     Then UI,API and Database user information must be match
 
     Examples:
-        | role        |
-        | teacher     |
-        | team-member |
-        | team-leader |
+      | role        |
+      | teacher     |
+      | team-member |
+      | team-leader |
